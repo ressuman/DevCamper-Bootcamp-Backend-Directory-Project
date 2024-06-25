@@ -24,17 +24,20 @@ npm run dev
 npm start
 ```
 
-#### Database Seeder
+### Database Seeder
 
 To seed the database with users, bootcamps, courses and reviews with data from the "\_data" folder, run
 
-##### Destroy all data
+### Destroy all data
 
 node seeder -d
 
-##### Import all data
+### Import all data
 
 node seeder -i
 
 - Version: 1.0.0
 - License: MIT
+
+Here is an expected gif of the preview of routes of the index.html
+![DevCamper Bootcamp gif](./public/devcamper-bootcamp.gif)
