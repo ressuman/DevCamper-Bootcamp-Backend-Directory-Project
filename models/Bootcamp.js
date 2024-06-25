@@ -11,7 +11,7 @@ const BootcampSchema = new mongoose.Schema(
       required: [true, "Please add a name"], // Name is required
       unique: true, // Name must be unique
       trim: true, // Trim whitespace from name
-      maxlength: [50, "Name cannot be more than 50 characters"], // Maximum length for name
+      maxlength: [75, "Name cannot be more than 50 characters"], // Maximum length for name
     },
     // Bootcamp slug field
     slug: String,
@@ -198,9 +198,9 @@ BootcampSchema.pre("deleteOne", { document: true }, async function (next) {
   // Delete all courses associated with the bootcamp
   await mongoose.model("Course").deleteMany({ bootcamp: this._id });
   // Log a message indicating reviews are being deleted from the bootcamp
-  //console.log(`Reviews being deleted from bootcamp ${this._id}`);
+  console.log(`Reviews being deleted from bootcamp ${this._id}`);
   // Delete all reviews associated with the bootcamp
-  //await mongoose.model("Review").deleteMany({ bootcamp: this._id });
+  await mongoose.model("Review").deleteMany({ bootcamp: this._id });
   next(); // Proceed to the next middleware
 });
 

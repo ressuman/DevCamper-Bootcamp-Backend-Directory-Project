@@ -24,7 +24,7 @@ class ErrorResponse extends Error {
     this.statusCode = statusCode; // Set the HTTP status code
 
     // Capture the stack trace
-    //Error.captureStackTrace(this, this.constructor);
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 

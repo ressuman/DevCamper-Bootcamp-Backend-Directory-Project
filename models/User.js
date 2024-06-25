@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const randomize = require("randomatic");
 
 // Define the User Schema
 const UserSchema = new mongoose.Schema({
@@ -31,17 +32,17 @@ const UserSchema = new mongoose.Schema({
   },
   resetPasswordToken: String, // Token for resetting password
   resetPasswordExpire: Date, // Expiration time for reset password token
-  // confirmEmailToken: String, // Token for confirming email address
-  // isEmailConfirmed: {
-  //   type: Boolean,
-  //   default: false, // Default email confirmation status is false
-  // },
-  // twoFactorCode: String, // Two-factor authentication code
-  // twoFactorCodeExpire: Date, // Expiration time for two-factor authentication code
-  // twoFactorEnable: {
-  //   type: Boolean,
-  //   default: false, // Default two-factor authentication status is false
-  // },
+  confirmEmailToken: String, // Token for confirming email address
+  isEmailConfirmed: {
+    type: Boolean,
+    default: false, // Default email confirmation status is false
+  },
+  twoFactorCode: String, // Two-factor authentication code
+  twoFactorCodeExpire: Date, // Expiration time for two-factor authentication code
+  twoFactorEnable: {
+    type: Boolean,
+    default: false, // Default two-factor authentication status is false
+  },
   createdAt: {
     type: Date,
     default: Date.now, // Set default creation date to current timestamp
@@ -60,14 +61,14 @@ UserSchema.pre("save", async function (next) {
   next();
 });
 
-// // Encrypt password using bcrypt while updating (admin)
-// UserSchema.pre('findOneAndUpdate', async function (next) {
-//   if (this._update.password) {
-//     // If password is being updated
-//     this._update.password = await bcrypt.hash(this._update.password, 10); // Hash updated password
-//   }
-//   next();
-// });
+// Encrypt password using bcrypt while updating (admin)
+UserSchema.pre("findOneAndUpdate", async function (next) {
+  if (this._update.password) {
+    // If password is being updated
+    this._update.password = await bcrypt.hash(this._update.password, 10); // Hash updated password
+  }
+  next();
+});
 
 // Sign JWT and return
 UserSchema.methods.getSignedJwtToken = function () {
@@ -98,23 +99,54 @@ UserSchema.methods.getResetPasswordToken = function () {
   return resetToken;
 };
 
-// // Generate email confirm token
-// UserSchema.methods.generateEmailConfirmToken = function () {
-//   // Generate random token
-//   const confirmationToken = crypto.randomBytes(20).toString('hex');
+// Generate email confirm token
+UserSchema.methods.generateEmailConfirmToken = function (next) {
+  // Generate random token
+  const confirmationToken = crypto.randomBytes(20).toString("hex");
 
-//   // Combine with extended token for security
-//   const confirmTokenExtend = crypto.randomBytes(100).toString('hex');
-//   const confirmTokenCombined = `${confirmationToken}.${confirmTokenExtend}`;
+  // Hash token and set to confirmEmailToken field
+  this.confirmEmailToken = crypto
+    .createHash("sha256")
+    .update(confirmationToken)
+    .digest("hex");
 
-//   // Hash token and set to confirmEmailToken field
-//   this.confirmEmailToken = crypto
-//     .createHash('sha256')
-//     .update(confirmTokenCombined)
-//     .digest('hex');
+  // Generate extended token for additional security
+  const confirmTokenExtend = crypto.randomBytes(100).toString("hex");
+  const confirmTokenCombined = `${confirmationToken}.${confirmTokenExtend}`;
 
-//   return confirmTokenCombined; // Return combined token
-// };
+  return confirmTokenCombined; // Return the combined token
+};
+
+// Method to generate and hash two-factor authentication code
+UserSchema.methods.generateTwoFactorCode = function () {
+  // Generate a random six-digit code
+  const twoFactorCode = crypto.randomBytes(3).toString("hex");
+
+  // Hash the code and set to twoFactorCode field
+  this.twoFactorCode = crypto
+    .createHash("sha256")
+    .update(twoFactorCode)
+    .digest("hex");
+
+  // Set expiration time for the code (10 minutes from now)
+  this.twoFactorCodeExpire = Date.now() + 10 * 60 * 1000;
+
+  return twoFactorCode; // Return the plain two-factor code
+};
+
+// Method to verify two-factor authentication code
+UserSchema.methods.verifyTwoFactorCode = function (enteredCode) {
+  // Hash the entered code
+  const hashedCode = crypto
+    .createHash("sha256")
+    .update(enteredCode)
+    .digest("hex");
+
+  // Check if the hashed code matches and is not expired
+  return (
+    this.twoFactorCode === hashedCode && this.twoFactorCodeExpire > Date.now()
+  );
+};
 
 // Export the User model
 module.exports = mongoose.model("User", UserSchema);

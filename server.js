@@ -1,3 +1,4 @@
+// Import required modules
 const express = require("express");
 const dotenv = require("dotenv");
 const colors = require("colors");
@@ -5,15 +6,23 @@ const morgan = require("morgan");
 const fileupload = require("express-fileupload");
 const path = require("path");
 const cookieParser = require("cookie-parser");
+const mongoSanitize = require("express-mongo-sanitize");
+const helmet = require("helmet");
+const xss = require("xss-clean");
+const { rateLimit } = require("express-rate-limit");
+const hpp = require("hpp");
+const cors = require("cors");
+
+// Import the database connection function
 const connectDB = require("./config/db");
 
-// Load env vars
+// Load environment variables from the config.env file
 dotenv.config({ path: "./config/config.env" });
 
-// Connect to database
+// Connect to the MongoDB database
 connectDB();
 
-// Route files
+// Import route files
 const bootcamps = require("./routes/bootcamps");
 const courses = require("./routes/courses");
 const errorHandler = require("./middlewares/error");
@@ -21,21 +30,21 @@ const errorHandler = require("./middlewares/error");
 //const logger = require("./middlewares/logger");
 const auth = require("./routes/auth");
 const users = require("./routes/users");
+const reviews = require("./routes/reviews");
 
 const app = express();
 
-// Body parser
+// Body parser middleware to parse JSON requests
 app.use(express.json());
 
-// Cookie parser
+// Cookie parser middleware to parse cookies
 app.use(cookieParser());
 
-// Dev logging middleware
-// Using morgan logger OR
+// Development logging middleware using morgan
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
-// // Using winston logger OR
+// // Alternatively, using a custom logger or winston logger
 // if (process.env.NODE_ENV === "development") {
 //   app.use(requestLogger);
 // }
@@ -44,22 +53,49 @@ if (process.env.NODE_ENV === "development") {
 //   app.use(logger);
 // }
 
-// File uploading
+// File uploading middleware
 app.use(fileupload());
 
-// Set static folder
-app.use(express.static(path.join(__dirname, "public")));
+// Data sanitization against NoSQL injection attacks
+app.use(mongoSanitize());
 
-// Mount routers
-app.use("/api/v1/bootcamps", bootcamps);
-app.use("/api/v1/courses", courses);
-app.use("/api/v1/auth", auth);
-app.use("/api/v1/users", users);
+// Setting various HTTP headers for security
+app.use(helmet());
 
+// Preventing Cross-site scripting (XSS) attacks
+app.use(xss());
+
+// Rate limiting middleware to limit requests from the same IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+app.use(limiter);
+
+// Preventing HTTP parameter pollution
+app.use(hpp());
+
+// Enabling Cross-Origin Resource Sharing (CORS)
+app.use(cors());
+
+// Setting the static folder to serve static files
+
+// Mounting the routers
+app.use("/api/v1/bootcamps", bootcamps); // Bootcamps routes
+app.use("/api/v1/courses", courses); // Courses routes
+app.use("/api/v1/auth", auth); // Authentication routes
+app.use("/api/v1/users", users); // User routes
+app.use("/api/v1/reviews", reviews); // Review routes
+
+// Custom error handler middleware
 app.use(errorHandler);
 
+// Setting the port from environment variables or default to 5193
 const PORT = process.env.PORT || 5193;
 
+// Starting the server and listening on the specified port
 const server = app.listen(
   PORT,
   console.log(

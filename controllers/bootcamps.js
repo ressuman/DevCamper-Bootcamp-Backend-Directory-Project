@@ -17,7 +17,6 @@ exports.getBootcamps = asyncAwaitHandler(async (req, res, next) => {
     // If an error occurs, pass it to the error handling middleware
     next(error);
   }
-  //res.status(200).json(res.advancedQueryResults);
 });
 
 // @desc      Get single bootcamp

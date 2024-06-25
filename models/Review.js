@@ -44,51 +44,51 @@ const ReviewSchema = new mongoose.Schema({
 });
 
 // Prevent user from submitting more than one review per bootcamp
-//ReviewSchema.index({ bootcamp: 1, user: 1 }, { unique: true });
+ReviewSchema.index({ bootcamp: 1, user: 1 }, { unique: true });
 
 /**
  * Static method to get average rating and update bootcamp
  * @param {ObjectId} bootcampId - ID of the bootcamp
  */
-// ReviewSchema.statics.getAverageRating = async function (bootcampId) {
-//   const obj = await this.aggregate([
-//     {
-//       $match: { bootcamp: bootcampId }, // Match reviews for the specific bootcamp
-//     },
-//     {
-//       $group: {
-//         _id: "$bootcamp", // Group by bootcamp ID
-//         averageRating: { $avg: "$rating" }, // Calculate the average rating
-//       },
-//     },
-//   ]);
+ReviewSchema.statics.getAverageRating = async function (bootcampId) {
+  const obj = await this.aggregate([
+    {
+      $match: { bootcamp: bootcampId }, // Match reviews for the specific bootcamp
+    },
+    {
+      $group: {
+        _id: "$bootcamp", // Group by bootcamp ID
+        averageRating: { $avg: "$rating" }, // Calculate the average rating
+      },
+    },
+  ]);
 
-//   try {
-//     // Update bootcamp with the new average rating
-//     if (obj.length > 0) {
-//       await this.model("Bootcamp").findByIdAndUpdate(bootcampId, {
-//         averageRating: obj[0].averageRating.toFixed(1), // Fix the average rating to one decimal place
-//       });
-//     } else {
-//       // If no reviews exist, remove the average rating field
-//       await this.model("Bootcamp").findByIdAndUpdate(bootcampId, {
-//         averageRating: undefined,
-//       });
-//     }
-//   } catch (err) {
-//     // Log error for debugging purposes
-//     console.error(err);
-//   }
-// };
+  try {
+    // Update bootcamp with the new average rating
+    if (obj.length > 0) {
+      await this.model("Bootcamp").findByIdAndUpdate(bootcampId, {
+        averageRating: obj[0].averageRating.toFixed(1), // Fix the average rating to one decimal place
+      });
+    } else {
+      // If no reviews exist, remove the average rating field
+      await this.model("Bootcamp").findByIdAndUpdate(bootcampId, {
+        averageRating: undefined,
+      });
+    }
+  } catch (err) {
+    // Log error for debugging purposes
+    console.error(err);
+  }
+};
 
 // Call getAverageRating after save
-// ReviewSchema.post("save", async function () {
-//   await this.constructor.getAverageRating(this.bootcamp);
-// });
+ReviewSchema.post("save", async function (doc) {
+  await this.constructor.getAverageRating(doc.bootcamp);
+});
 
 // Call getAverageRating before remove
-// ReviewSchema.post("remove", async function () {
-//   await this.constructor.getAverageRating(this.bootcamp);
-// });
+ReviewSchema.post("remove", async function (doc) {
+  await this.constructor.getAverageRating(doc.bootcamp);
+});
 
 module.exports = mongoose.model("Review", ReviewSchema);

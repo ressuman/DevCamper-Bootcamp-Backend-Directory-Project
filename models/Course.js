@@ -90,13 +90,13 @@ CourseSchema.post("remove", async function (doc) {
   await this.constructor.getAverageCost(doc.bootcamp);
 });
 
-// // Middleware: Call getAverageCost after a course's tuition is updated
-// CourseSchema.post("findOneAndUpdate", async function (doc) {
-//   // Check if the tuition has changed
-//   if (this.tuition !== doc.tuition) {
-//     await doc.constructor.getAverageCost(doc.bootcamp);
-//   }
-// });
+// Middleware: Call getAverageCost after a course's tuition is updated
+CourseSchema.post("findOneAndUpdate", async function (doc) {
+  // Check if the tuition has changed
+  if (this.tuition !== doc.tuition) {
+    await doc.constructor.getAverageCost(doc.bootcamp);
+  }
+});
 
 // Export the Course model
 module.exports = mongoose.model("Course", CourseSchema);

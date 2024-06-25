@@ -20,25 +20,61 @@ exports.register = asyncAwaitHandler(async (req, res, next) => {
       role,
     });
 
-    //   // Generate email confirmation token
-    //   const confirmEmailToken = user.generateEmailConfirmToken();
-    //   // Construct email confirmation URL
-    //   const confirmEmailURL = `${req.protocol}://${req.get(
-    //     "host"
-    //   )}/api/v1/auth/confirmemail?token=${confirmEmailToken}`;
-    //   // Construct email message
-    //   const message = `You are receiving this email because you need to confirm your email address. Please make a GET request to: \n\n ${confirmEmailURL}`;
-    //   // Save user without validating before saving
-    //   user.save({ validateBeforeSave: false });
-    //   // Send confirmation email
-    //   const sendResult = await sendEmail({
-    //     email: user.email,
-    //     subject: "Email confirmation token",
-    //     message,
-    //   });
+    // Generate email confirmation token
+    const confirmEmailToken = user.generateEmailConfirmToken();
+    // Construct email confirmation URL
+    const confirmEmailURL = `${req.protocol}://${req.get(
+      "host"
+    )}/api/v1/auth/confirmEmail?token=${confirmEmailToken}`;
 
-    // Send token response to client
-    sendTokenResponse(user, 200, res, "Registration successful");
+    // Construct email message
+    const message = `  Dear ${name},
+
+      Thank you for registering. Please confirm your email address by clicking the link below:
+
+      ${confirmEmailURL}
+
+      If you did not request this registration, please ignore this email.
+
+      Best regards,
+      The Team`;
+
+    //Construct html message
+    const html = ` <p>Dear ${name},</p>
+      <p>Thank you for registering. Please confirm your email address by clicking the link below:</p>
+      <a href="${confirmEmailURL}">${confirmEmailURL}</a>
+      <p>If you did not request this registration, please ignore this email.</p>
+      <p>Best regards,<br/>The Team</p>`;
+
+    try {
+      // Save user without validating before saving
+      await user.save({ validateBeforeSave: false });
+
+      // Send confirmation email
+      await sendEmail({
+        email: user.email,
+        subject: "Email Confirmation Required",
+        message,
+        html,
+      });
+
+      // Send token response to client
+      sendTokenResponse(
+        user,
+        200,
+        res,
+        "Registration successful. Please check your email to confirm your account."
+      );
+    } catch (emailError) {
+      // If sending email fails, delete the user and return error
+      await User.findByIdAndDelete(user._id);
+      return next(
+        new ErrorResponse(
+          "There was an error sending the email. Please try again later.",
+          500
+        )
+      );
+    }
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
@@ -85,52 +121,48 @@ exports.login = asyncAwaitHandler(async (req, res, next) => {
 // @route     GET /api/v1/auth/logout
 // @access    Public
 // Controller for logging out user and clearing cookie
-// exports.logout = asyncAwaitHandler(async (req, res, next) => {
-//   try {
-//     // Set cookie to 'none' with an expiration time of 10 seconds
-//     res.cookie("token", "none", {
-//       expires: new Date(Date.now() + 10 * 1000),
-//       httpOnly: true, // Cookie accessible only via HTTP(S) protocol
-//     });
+exports.logout = asyncAwaitHandler(async (req, res, next) => {
+  try {
+    // Set cookie to 'none' with an expiration time of 5 seconds
+    res.cookie("token", "none", {
+      expires: new Date(Date.now() + 5 * 1000),
+      httpOnly: true, // Cookie accessible only via HTTP(S) protocol
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+    });
 
-//     // Send success response with empty data object
-//     res.status(200).json({
-//       success: true,
-//       data: {},
-//     });
-//   } catch (error) {
-//     // Pass any errors to the error handling middleware
-//     next(error);
-//   }
-// });
+    // Send success response with empty data object
+    res.status(200).json({
+      success: true,
+      status: true,
+      message: "User logged out successfully",
+      data: {},
+    });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
 
 // @desc      Get current logged in user
 // @route     GET /api/v1/auth/currentUser
 // @access    Private
 // Controller for fetching current logged in user
 exports.getCurrentLoginUser = asyncAwaitHandler(async (req, res, next) => {
-  // try {
-  //   // Retrieve user from request object (set by protect middleware)
-  //   const user = req.user;
+  try {
+    // Retrieve user from request object (set by protect middleware)
+    const user = req.user;
 
-  //   // Send success response with user data
-  //   res.status(200).json({
-  //     success: true,
-  //     status: true,
-  //     message: "Current authenticated user retrieved successfully",
-  //     data: user,
-  //   });
-  // } catch (error) {
-  //   // Pass any errors to the error handling middleware
-  //   next(error);
-  // }
-  const user = await User.findById(req.user.id);
-  res.status(200).json({
-    success: true,
-    status: true,
-    message: "Current authenticated user retrieved successfully",
-    data: user,
-  });
+    // Send success response with user data
+    res.status(200).json({
+      success: true,
+      status: true,
+      message: "Current authenticated user retrieved successfully",
+      data: user,
+    });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
 });
 
 // @desc      Update user details
@@ -326,53 +358,129 @@ exports.resetPassword = asyncAwaitHandler(async (req, res, next) => {
 
 /**
  * @desc    Confirm Email
- * @route   GET /api/v1/auth/confirmemail
+ * @route   GET /api/v1/auth/confirmEmail
  * @access  Public
  * Controller for confirming user email
  */
-// exports.confirmEmail = asyncHandler(async (req, res, next) => {
-//   try {
-//     // Grab token from query parameter
-//     const { token } = req.query;
+exports.confirmEmail = asyncAwaitHandler(async (req, res, next) => {
+  try {
+    // Grab token from query parameter
+    const { token } = req.query;
 
-//     // Check if token exists
-//     if (!token) {
-//       return next(new ErrorResponse("Invalid Token", 400));
-//     }
+    // Check if token exists
+    if (!token) {
+      return next(new ErrorResponse("Invalid Token", 400));
+    }
 
-//     // Extract token part before dot
-//     const splitToken = token.split(".")[0];
-//     const confirmEmailToken = crypto
-//       .createHash("sha256")
-//       .update(splitToken)
-//       .digest("hex");
+    // Extract token part before dot
+    const splitToken = token.split(".")[0];
+    const confirmEmailToken = crypto
+      .createHash("sha256")
+      .update(splitToken)
+      .digest("hex");
 
-//     // Find user by confirmation token and ensure email not already confirmed
-//     const user = await User.findOne({
-//       confirmEmailToken,
-//       isEmailConfirmed: false,
-//     });
+    // Find user by confirmation token and ensure email not already confirmed
+    const user = await User.findOne({
+      confirmEmailToken,
+      isEmailConfirmed: false,
+    });
 
-//     // If user not found or email already confirmed, return error
-//     if (!user) {
-//       return next(new ErrorResponse("Invalid Token", 400));
-//     }
+    // If user not found or email already confirmed, return error
+    if (!user) {
+      return next(new ErrorResponse("Invalid Token", 400));
+    }
 
-//     // Update user's email confirmation status
-//     user.confirmEmailToken = undefined;
-//     user.isEmailConfirmed = true;
+    // Update user's email confirmation status
+    user.confirmEmailToken = undefined;
+    user.isEmailConfirmed = true;
 
-//     // Save user changes
-//     await user.save({ validateBeforeSave: false });
+    // Save user changes
+    await user.save({ validateBeforeSave: false });
 
-//     // Return token response
-//     sendTokenResponse(user, 200, res);
-//   } catch (error) {
-//     // Handle errors
-//     console.error(error);
-//     return next(new ErrorResponse("Confirm email failed", 500));
-//   }
-// });
+    // Return token response
+    sendTokenResponse(user, 200, res, "Email confirmed successfully.");
+  } catch (error) {
+    // Handle errors
+    console.error(error);
+    return next(new ErrorResponse("Confirm email failed", 500));
+  }
+});
+
+/**
+ * @desc    Send Two-Factor Authentication Code
+ * @route   POST /api/v1/auth/sendTwoFactorCode
+ * @access  Private
+ * Controller to generate and send two-factor authentication code to the user
+ */
+exports.sendTwoFactorCode = asyncAwaitHandler(async (req, res, next) => {
+  try {
+    const user = req.user; // Get the authenticated user
+
+    // Generate the two-factor code
+    const twoFactorCode = user.generateTwoFactorCode();
+
+    // Save the user with the new two-factor code and expiration time
+    await user.save({ validateBeforeSave: false });
+
+    // Send the code to the user (e.g., via email)
+    const message = `Dear ${user.name},\n\nYour two-factor      authentication code is: ${twoFactorCode}\n\nPlease use this code to complete your login. This code will expire in 10 minutes.\n\nIf you did not request this code, please contact our support team immediately.\n\nBest regards,\nYour Company Name`;
+
+    // Construct the HTML message
+    const html = `
+      <p>Dear ${user.name},</p>
+      <p>Your two-factor authentication code is: <strong>${twoFactorCode}</strong></p>
+      <p>Please use this code to complete your login. This code will expire in 10 minutes.</p>
+      <p>If you did not request this code, please contact our support team immediately.</p>
+      <p>Best regards,<br>Your Company Name</p>
+    `;
+
+    // Send the code to the user via email
+    await sendEmail({
+      email: user.email,
+      subject: "Your Two-Factor Authentication Code",
+      message,
+      html,
+    });
+
+    // Send a success response
+    res.status(200).json({
+      success: true,
+      status: true,
+      message: "Two-factor authentication code sent successfully",
+    });
+  } catch (err) {
+    // Pass any errors to the error handling middleware
+    next(err);
+  }
+});
+
+/**
+ * @desc    Verify Two-Factor Authentication Code
+ * @route   POST /api/v1/auth/verifyTwoFactorCode
+ * @access  Private
+ * Controller for verifying the two-factor authentication code
+ */
+exports.verifyTwoFactorCode = asyncAwaitHandler(async (req, res, next) => {
+  try {
+    const { code } = req.body; // Get the entered code from the request body
+    const user = req.user; // Get the authenticated user
+
+    // Verify the code
+    if (!user.verifyTwoFactorCode(code)) {
+      return next(new ErrorResponse("Invalid or expired two-factor code", 400));
+    }
+
+    // Send a success response
+    res.status(200).json({
+      success: true,
+      status: true,
+      message: "Two-factor authentication code verified successfully",
+    });
+  } catch (err) {
+    // Pass any errors to the error handling middleware
+    next(err);
+  }
+});
 
 /**
  * Get token from model, create cookie and send response

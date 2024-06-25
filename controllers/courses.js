@@ -145,7 +145,7 @@ exports.updateCourse = asyncAwaitHandler(async (req, res, next) => {
     });
 
     // Save the updated course
-    //await course.save();
+    await course.save();
 
     // Return success response with the updated course data
     res.status(200).json({
