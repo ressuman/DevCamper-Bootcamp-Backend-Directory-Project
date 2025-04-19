@@ -12,6 +12,12 @@ const xss = require("xss-clean");
 const { rateLimit } = require("express-rate-limit");
 const hpp = require("hpp");
 const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
+// const {
+//   apiDocumentation,
+//   apiDocumentation1,
+//   apiDocumentation2,
+// } = require("./docs/api");
 
 // Import the database connection function
 const connectDB = require("./config/db");
@@ -31,6 +37,12 @@ const errorHandler = require("./middlewares/error");
 const auth = require("./routes/auth");
 const users = require("./routes/users");
 const reviews = require("./routes/reviews");
+const { apiDocumentation1 } = require("./docs/api");
+
+const swaggerDocs = apiDocumentation1;
+
+const CSS_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
 
 const app = express();
 
@@ -80,7 +92,73 @@ app.use(hpp());
 // Enabling Cross-Origin Resource Sharing (CORS)
 app.use(cors());
 
-// Setting the static folder to serve static files
+app.get("/", (request, response) => {
+  response.json({
+    success: true,
+    message: "Welcome to the Bootcamp LMS API",
+    description:
+      "A comprehensive learning management system for technical education programs, providing endpoints for managing bootcamps, courses, user accounts, reviews, and authentication systems.",
+    status: {
+      operational: true,
+      uptime: `${process.uptime().toFixed(2)} seconds`,
+      environment: process.env.NODE_ENV || "development",
+      serverTime: new Date().toISOString(),
+      memoryUsage: `${Math.round(
+        process.memoryUsage().rss / 1024 / 1024
+      )} MB RSS`,
+    },
+    documentation: {
+      swagger: `${request.protocol}://${request.get("host")}/api-docs`,
+      repository:
+        "https://github.com/ressuman/DevCamper-Bootcamp-Backend-Directory-Project.git",
+      versioning: {
+        api: "1.0.0",
+        node: process.version,
+        compatibility: "Express 4.x | MongoDB 6.x+",
+      },
+    },
+    features: [
+      "JWT Authentication with cookie-based sessions",
+      "Role-Based Access Control (RBAC)",
+      "Two-Factor Authentication (2FA)",
+      "Geospatial queries for bootcamp locations",
+      "Advanced filtering/pagination/sorting",
+      "File upload system for bootcamp photos",
+      "Automated rating/cost calculations",
+      "Email integration for account services",
+    ],
+    maintainer: {
+      name: "Richard Essuman",
+      email: "ressuman001@gmail.com",
+      github: "https://github.com/ressuman",
+      documentation:
+        "https://github.com/ressuman/DevCamper-Bootcamp-Backend-Directory-Project/wiki",
+    },
+    security: {
+      authentication: ["JWT", "2FA"],
+      headers: ["Helmet", "CORS", "XSS-Protection"],
+      rateLimiting: "100 requests/15 minutes",
+      encryption: ["bcrypt", "TLS 1.3"],
+    },
+    system: {
+      database: "MongoDB Atlas",
+      cache: "Node.js in-memory",
+      storage: "Local/Cloud file storage",
+      monitoring:
+        process.env.NODE_ENV === "production" ? "Enabled" : "Disabled",
+    },
+  });
+});
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocs, {
+    customCss:
+      ".swagger-ui .opblock .opblock-summary-path-description-wrapper { align-items: center; display: flex; flex-wrap: wrap; gap: 0 10px; padding: 0 10px; width: 100%; }",
+    customCssUrl: CSS_URL,
+  })
+);
 
 // Mounting the routers
 app.use("/api/v1/bootcamps", bootcamps); // Bootcamps routes
